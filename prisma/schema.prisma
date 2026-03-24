@@ -1,0 +1,57 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Competition {
+  id        String   @id @default(cuid())
+  name      String
+  sport     String
+  status    String   @default("setup")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teams   Team[]
+  matches Match[]
+}
+
+model Team {
+  id            String      @id @default(cuid())
+  name          String
+  seed          Int
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  competitionId String
+
+  matchesAsTeam1 Match[] @relation("Team1")
+  matchesAsTeam2 Match[] @relation("Team2")
+  wonMatches     Match[] @relation("Winner")
+}
+
+model Match {
+  id            String      @id @default(cuid())
+  round         Int
+  matchIndex    Int
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  competitionId String
+
+  team1    Team?   @relation("Team1", fields: [team1Id], references: [id])
+  team1Id  String?
+  team2    Team?   @relation("Team2", fields: [team2Id], references: [id])
+  team2Id  String?
+  winner   Team?   @relation("Winner", fields: [winnerId], references: [id])
+  winnerId String?
+
+  isBye     Boolean   @default(false)
+  scoreText String?
+  status    String    @default("pending")
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  @@unique([competitionId, round, matchIndex])
+}

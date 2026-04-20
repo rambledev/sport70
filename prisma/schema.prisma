@@ -1,5 +1,3 @@
-// prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,49 +7,304 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Competition {
-  id        String   @id @default(cuid())
-  name      String
-  sport     String
-  status    String   @default("setup")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum Role {
+  ATHLETE
+  MANAGER
+  STAFF
+  PERSONNEL
+  VISITOR
+  ADMIN
+}
+
+enum TournamentStatus {
+  SETUP
+  ONGOING
+  FINISHED
+}
+
+enum MatchStatus {
+  PENDING
+  ONGOING
+  FINISHED
+}
+
+enum ScoreType {
+  SIMPLE
+  POINT
+  SET
+}
+
+enum LocationType {
+  FIELD
+  TOILET
+  SERVICE
+}
+
+enum CertificateType {
+  ATHLETE
+  COACH
+  MANAGER
+}
+
+enum EventStatus {
+  UPCOMING
+  ONGOING
+  FINISHED
+}
+
+enum RegistrationStatus {
+  GOING
+  NOT_GOING
+}
+
+enum AthleteGroup {
+  STUDENT
+  PERSONNEL
+}
+
+enum SportCategory {
+  TEAM
+  INDIVIDUAL
+  COMBAT
+  OTHER
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  name       String
+  phone      String?
+  university String?
+  role       Role     @default(VISITOR)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  athleteProfile   AthleteProfile?
+  managerProfile   ManagerProfile?
+  staffProfile     StaffProfile?
+  personnelProfile PersonnelProfile?
+
+  votes              Vote[]
+  eventRegistrations EventRegistration[]
+  certificates       Certificate[]
+  notifications      Notification[]
+}
+
+model AthleteProfile {
+  id           String        @id @default(cuid())
+  userId       String        @unique
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sport        String?
+  athleteGroup AthleteGroup  @default(STUDENT)
+  documents    String?
+}
+
+model ManagerProfile {
+  id     String  @id @default(cuid())
+  userId String  @unique
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sport  String?
+}
+
+model StaffProfile {
+  id            String  @id @default(cuid())
+  userId        String  @unique
+  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignedSport String?
+}
+
+model PersonnelProfile {
+  id         String  @id @default(cuid())
+  userId     String  @unique
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  university String?
+}
+
+model Sport {
+  id          String        @id @default(cuid())
+  name        String        @unique
+  description String?
+  scoreType   ScoreType     @default(SIMPLE)
+  category    SportCategory @default(TEAM)
+  icon        String?
+  createdAt   DateTime      @default(now())
+
+  tournaments Tournament[]
+  teams       Team[]
+}
+
+model Tournament {
+  id           String           @id @default(cuid())
+  name         String           @unique
+  sportId      String
+  sport        Sport            @relation(fields: [sportId], references: [id])
+  status       TournamentStatus @default(SETUP)
+  athleteGroup AthleteGroup?
+  startDate    DateTime?
+  endDate      DateTime?
+  location     String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   teams   Team[]
   matches Match[]
 }
 
 model Team {
-  id            String      @id @default(cuid())
-  name          String
-  seed          Int
-  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  competitionId String
+  id              String      @id @default(cuid())
+  name            String
+  university      String?
+  universityShort String?
+  seed            Int         @default(0)
+  sportId         String
+  sport        Sport       @relation(fields: [sportId], references: [id])
+  tournamentId String?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+  createdAt    DateTime    @default(now())
 
-  matchesAsTeam1 Match[] @relation("Team1")
-  matchesAsTeam2 Match[] @relation("Team2")
+  matchesAsTeamA Match[] @relation("TeamA")
+  matchesAsTeamB Match[] @relation("TeamB")
   wonMatches     Match[] @relation("Winner")
+
+  votes Vote[]
+
+  @@unique([name, sportId])
 }
 
 model Match {
-  id            String      @id @default(cuid())
-  round         Int
-  matchIndex    Int
-  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
-  competitionId String
+  id           String      @id @default(cuid())
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teamAId      String?
+  teamA        Team?       @relation("TeamA", fields: [teamAId], references: [id])
+  teamBId      String?
+  teamB        Team?       @relation("TeamB", fields: [teamBId], references: [id])
+  winnerId     String?
+  winner       Team?       @relation("Winner", fields: [winnerId], references: [id])
+  scoreA       Int         @default(0)
+  scoreB       Int         @default(0)
+  round        Int
+  matchNumber  Int
+  nextMatchId  String?
+  status       MatchStatus @default(PENDING)
+  startTime    DateTime?
+  location     String?
+  youtubeUrl   String?
+  isLive       Boolean     @default(false)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
-  team1    Team?   @relation("Team1", fields: [team1Id], references: [id])
-  team1Id  String?
-  team2    Team?   @relation("Team2", fields: [team2Id], references: [id])
-  team2Id  String?
-  winner   Team?   @relation("Winner", fields: [winnerId], references: [id])
-  winnerId String?
+  sets MatchSet[]
+}
 
-  isBye     Boolean   @default(false)
-  scoreText String?
-  status    String    @default("pending")
-  startedAt DateTime?
-  endedAt   DateTime?
+model MatchSet {
+  id        String @id @default(cuid())
+  matchId   String
+  match     Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  setNumber Int
+  scoreA    Int    @default(0)
+  scoreB    Int    @default(0)
 
-  @@unique([competitionId, round, matchIndex])
+  @@unique([matchId, setNumber])
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  description String?
+  location    String?
+  startTime   DateTime
+  endTime     DateTime?
+  status      EventStatus @default(UPCOMING)
+  maxGuests   Int?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  registrations EventRegistration[]
+}
+
+model EventRegistration {
+  id        String             @id @default(cuid())
+  eventId   String
+  event     Event              @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status    RegistrationStatus @default(GOING)
+  guests    Int                @default(0)
+  note      String?
+  createdAt DateTime           @default(now())
+
+  @@unique([eventId, userId])
+}
+
+model MapLocation {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  type      LocationType @default(FIELD)
+  lat       Float?
+  lng       Float?
+  address   String?
+  createdAt DateTime     @default(now())
+}
+
+model Album {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  coverUrl    String?
+  createdAt   DateTime @default(now())
+
+  photos Photo[]
+}
+
+model Photo {
+  id        String   @id @default(cuid())
+  albumId   String
+  album     Album    @relation(fields: [albumId], references: [id], onDelete: Cascade)
+  url       String
+  caption   String?
+  createdAt DateTime @default(now())
+}
+
+model CertificateTemplate {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  type        CertificateType
+  description String?
+  createdAt   DateTime        @default(now())
+
+  certificates Certificate[]
+}
+
+model Certificate {
+  id         String              @id @default(cuid())
+  userId     String
+  user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  templateId String
+  template   CertificateTemplate @relation(fields: [templateId], references: [id])
+  issuedAt   DateTime            @default(now())
+  sport      String?
+  position   String?
+  event      String?
+}
+
+model Vote {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

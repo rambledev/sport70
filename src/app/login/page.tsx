@@ -75,7 +75,7 @@ export default function LoginPage() {
         <div className="text-center text-white">
           <div className="text-6xl mb-4">🏆</div>
           <h1 className="text-3xl font-bold">RMU Sports Games</h1>
-          <p className="text-blue-200 mt-2">ระบบจัดการกีฬามหาวิทยาลัย 2024</p>
+          <p className="text-blue-200 mt-2">ระบบจัดการเจ้าภาพกีฬา <br></br>มหาวิทยาลัยราชภัฏมหาสารคาม</p>
         </div>
 
         <Card>
